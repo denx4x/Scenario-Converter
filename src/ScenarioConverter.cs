@@ -1,0 +1,62 @@
+using System;
+using System.IO;
+using System.Text;
+using System.Drawing;
+using System.Collections;
+using System.Collections.Generic;
+using System.Web.Script.Serialization;
+using System.Windows.Forms;
+
+public partial class KonverterSkenario : Form {
+ static JavaScriptSerializer json=new JavaScriptSerializer { MaxJsonLength=int.MaxValue, RecursionLimit=100 };
+ const string Pdf="https://www.adobe.com/support/products/enterprise/knowledgecenter/media/c4611_sample_explain.pdf";
+ object source, editor;
+ TextBox sourcePath=new TextBox(), editorPath=new TextBox(), nameBox=new TextBox(), desc=new TextBox(), chapter=new TextBox(), sub=new TextBox(), pdf=new TextBox(), preview=new TextBox();
+ Label status=new Label();
+ Button save=new Button();
+ public KonverterSkenario(){
+  Text="Scenario Converter v"+CurrentVersion; Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath); Size=new Size(1120,820); MinimumSize=new Size(850,650); StartPosition=FormStartPosition.CenterScreen; Font=new Font("Segoe UI",10); BackColor=Color.FromArgb(245,247,245); AutoScaleMode=AutoScaleMode.Dpi;
+  var split=new SplitContainer { Size=new Size(1080,760), Dock=DockStyle.Fill, SplitterDistance=490, Panel1MinSize=380, Panel2MinSize=320, Padding=new Padding(16) }; Controls.Add(split);
+  var form=new TableLayoutPanel { Dock=DockStyle.Fill, ColumnCount=1, RowCount=1, AutoScroll=true, Padding=new Padding(10) }; form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100)); split.Panel1.Controls.Add(form);
+  Add(form,new Label { Text="Scenario Converter", Font=new Font("Segoe UI",20,FontStyle.Bold), AutoSize=true },50);
+  Add(form,new Label { Text="Aplikasi desktop · File diproses di komputer Anda",AutoSize=true },30); var updateButton=new Button {Text="Cek pembaruan · v"+CurrentVersion,AutoSize=true}; Add(form,updateButton,38); updateButton.Click+=async (s,e)=>await CheckForUpdates(updateButton);
+  var reopen=new Button {Text="Buka JSON hasil konversi…",AutoSize=true}; Add(form,reopen,38); reopen.Click+=(s,e)=>OpenConverted(); AddFile(form,"File skenario (.json)",sourcePath,false); AddFile(form,"File object list (.editor)",editorPath,true);
+  Field(form,"Nama content",nameBox,36); desc.Multiline=true;desc.ScrollBars=ScrollBars.Vertical; Field(form,"Description",desc,105); Field(form,"Chapter",chapter,36);Field(form,"Subchapter",sub,36);pdf.Text=Pdf;Field(form,"PDF URL",pdf,36);
+  var buttons=new FlowLayoutPanel { Dock=DockStyle.Fill };var convert=new Button { Text="Konversi",AutoSize=true };save.Text="Simpan JSON…";save.AutoSize=true;save.Enabled=false;buttons.Controls.Add(convert);buttons.Controls.Add(save);Add(form,buttons,45);
+  status.Text="Tarik JSON dan editor ke jendela ini, atau gunakan tombol Pilih.";status.Dock=DockStyle.Fill;Add(form,status,90);
+  preview.Multiline=true;preview.ReadOnly=true;preview.ScrollBars=ScrollBars.Both;preview.WordWrap=false;preview.Font=new Font("Consolas",10);preview.Dock=DockStyle.Fill;preview.BackColor=Color.White;split.Panel2.Controls.Add(preview);
+  convert.Click+=(s,e)=>ConvertPreview();save.Click+=(s,e)=>Save();
+  foreach(var box in new[]{nameBox,desc,chapter,sub,pdf})box.TextChanged+=(s,e)=>{save.Enabled=false;}; EnableDrop(this);
+ }
+ void Add(TableLayoutPanel p,Control c,int height){int row=p.RowCount-1;p.RowStyles.Add(new RowStyle(SizeType.Absolute,height));c.Dock=DockStyle.Fill;p.Controls.Add(c,0,row);p.RowCount++;}
+ void Field(TableLayoutPanel p,string title,TextBox box,int height){Add(p,new Label {Text=title,AutoSize=true},25);Add(p,box,height);}
+ void AddFile(TableLayoutPanel p,string title,TextBox path,bool isEditor){Add(p,new Label {Text=title+" — tarik file ke sini",AutoSize=true},25);var row=new TableLayoutPanel {ColumnCount=2};row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,85));path.ReadOnly=true;path.Dock=DockStyle.Fill;var b=new Button {Text="Pilih…",Dock=DockStyle.Fill};row.Controls.Add(path,0,0);row.Controls.Add(b,1,0);Add(p,row,38);b.Click+=(s,e)=>{using(var d=new OpenFileDialog {Filter=isEditor?"Editor / JSON|*.editor;*.json;*.txt|Semua file|*.*":"JSON|*.json|Semua file|*.*"}){if(d.ShowDialog()!=DialogResult.OK)return;try{LoadFile(d.FileName,isEditor);}catch(Exception ex){Error(ex);}}};}
+ void OpenConverted(){using(var d=new OpenFileDialog {Filter="JSON hasil konversi|*.json|Semua file|*.*"}){if(d.ShowDialog()!=DialogResult.OK)return;try{var data=json.DeserializeObject(File.ReadAllText(d.FileName));if(!(Get(data,"scenario") is object[])||Objects(data)==null)throw new Exception("Pilih JSON hasil konversi yang memuat scenario dan scenarioobject.");LoadFile(d.FileName,false);ConvertPreview();}catch(Exception ex){Error(ex);}}}
+ void LoadFile(string filename,bool isEditor){var data=json.DeserializeObject(File.ReadAllText(filename));if(isEditor){if(Objects(data)==null)throw new Exception("Object list tidak ditemukan dalam "+Path.GetFileName(filename));editor=data;editorPath.Text=filename;}else{var m=Module(data);if(Steps(m)==null)throw new Exception("Langkah skenario tidak ditemukan dalam "+Path.GetFileName(filename));source=data;sourcePath.Text=filename;if(Get(m,"scenarioobject")!=null){editor=null;editorPath.Text="Object list dari JSON hasil konversi";}nameBox.Text=Str(Get(m,"namaContent")??Get(m,"AsbunName"));desc.Text=Str(Get(m,"description"));chapter.Text=Str(Get(m,"chapter")??Get(m,"chapter_name"));sub.Text=Str(Get(m,"subChapter")??Get(m,"lesson_name"));pdf.Text=Str(Get(m,"pdfurl")??Pdf);}save.Enabled=false;preview.Clear();status.Text="File berhasil dibaca. Klik Konversi.";}
+ void EnableDrop(Control control){control.AllowDrop=true;control.DragEnter+=(s,e)=>{e.Effect=e.Data.GetDataPresent(DataFormats.FileDrop)?DragDropEffects.Copy:DragDropEffects.None;};control.DragDrop+=(s,e)=>{try{var files=e.Data.GetData(DataFormats.FileDrop) as string[];if(files==null)return;bool? target=null;if(control==sourcePath)target=false;if(control==editorPath)target=true;DropFiles(files,target);}catch(Exception ex){Error(ex);}};foreach(Control child in control.Controls)EnableDrop(child);}
+ void DropFiles(string[] files,bool? target){foreach(var file in files){if(!File.Exists(file))throw new Exception("Tarik file JSON atau editor, bukan folder.");bool isEditor;if(files.Length==1&&target.HasValue)isEditor=target.Value;else{var data=json.DeserializeObject(File.ReadAllText(file));isEditor=Path.GetExtension(file).Equals(".editor",StringComparison.OrdinalIgnoreCase)||Get(data,"ListOfObjects")!=null;}LoadFile(file,isEditor);}}
+ void Error(Exception e){save.Enabled=false;status.Text=e.Message;MessageBox.Show(this,e.Message,"Tidak dapat mengonversi",MessageBoxButtons.OK,MessageBoxIcon.Error);}
+ string Generate(){if(source==null)throw new Exception("Pilih file JSON terlebih dahulu.");return Pretty(json.Serialize(Build(source,editor,nameBox.Text,desc.Text,chapter.Text,sub.Text,pdf.Text)));}
+ void ConvertPreview(){try{preview.Text=Generate();save.Enabled=true;status.Text="Konversi berhasil. Periksa pratinjau, lalu simpan JSON.";}catch(Exception e){Error(e);}}
+ void Save(){try{string text=Generate();using(var d=new SaveFileDialog {Filter="JSON|*.json",FileName=Path.GetFileNameWithoutExtension(sourcePath.Text)+"-formatted.json",DefaultExt="json",AddExtension=true}){if(d.ShowDialog()!=DialogResult.OK)return;File.WriteAllText(d.FileName,text+Environment.NewLine,new UTF8Encoding(false));status.Text="Tersimpan: "+d.FileName;}}catch(Exception e){Error(e);}}
+ static object Get(object o,string key){var d=o as Dictionary<string,object>;return d!=null&&d.ContainsKey(key)?d[key]:null;}
+ static string Str(object o){return o==null?"":Convert.ToString(o);}
+ static object Decode(object o){for(int i=0;i<8&&o is string;i++)o=json.DeserializeObject((string)o);return o;}
+ static object Module(object raw){object o=Decode(raw);if(Get(o,"skenario")!=null||Get(o,"scenario") is object[])return o;object s=Decode(Get(o,"scenario"));return Decode(Get(s,"modul"))??s??o;}
+ static object[] Steps(object m){return (Get(Decode(Get(m,"skenario")),"Items")??Get(m,"scenario")) as object[];}
+ static object[] Objects(object raw){if(raw==null)return null;var o=Decode(raw);var s=Decode(Get(o,"scenario"));foreach(var candidate in new[]{Get(o,"scenarioobject"),Get(o,"ListOfObjects"),Get(s,"ListOfObjects")}){if(candidate==null)continue;var l=Decode(candidate);var array=(l as object[])??(Get(l,"Items") as object[]);if(array!=null)return array;}return null;}
+ static Dictionary<string,object> D(params object[] kv){var d=new Dictionary<string,object>();for(int i=0;i<kv.Length;i+=2)d.Add((string)kv[i],kv[i+1]);return d;}
+ public static object Build(object raw,object ed,string name,string description,string chapter,string sub,string pdf){
+  var m=Module(raw);var items=Steps(m);if(items==null)throw new Exception("Langkah skenario tidak ditemukan.");var objects=Objects(ed)??Objects(raw);if(objects==null)throw new Exception("Pilih editor yang memuat object list.");var steps=new List<object>();var ids=new HashSet<string>();var types=new List<string>();
+  foreach(var n in items){string id=Str(Get(n,"id"));if(!ids.Add(id))throw new Exception("ID langkah duplikat: "+id);string cmd=Str(Get(n,"commands"));object parameter=Get(n,"parameterscript");if(parameter is string && (string)parameter=="")parameter=null;if(parameter!=null){if(!(parameter is string))throw new Exception("parameterscript langkah "+id+" harus string JSON.");try{json.DeserializeObject((string)parameter);}catch{throw new Exception("parameterscript langkah "+id+" bukan JSON valid.");}}if(!(Get(n,"prev_id") is object[])||!(Get(n,"next_id") is object[]))throw new Exception("Referensi langkah "+id+" harus berupa array.");steps.Add(D("id",Get(n,"id"),"prev_id",Get(n,"prev_id"),"next_id",Get(n,"next_id"),"commands",cmd=="First"?"Begin":cmd,"parameterscript",parameter,"event_name",Get(n,"event_name")));if(Array.IndexOf(new[]{"ManyToMany","OnetoOne","OneToOne","OneToMany","Quis Question"},cmd)>=0&&!types.Contains(cmd))types.Add(cmd);}
+  var list=new List<object>();var objectIds=new HashSet<string>();foreach(var o in objects){var id=Get(o,"GameObjectID")??Get(o,"objectId");if(id==null||Get(o,"GameObjectName")==null)throw new Exception("Objek tanpa nama atau ID.");if(!objectIds.Add(Str(id)))throw new Exception("ID objek duplikat: "+id);list.Add(D("GameObjectName",Get(o,"GameObjectName"),"ActionsAvailable",Get(o,"ActionsAvailable")??new object[0],"GameObjectID",id));}
+  return D("id",Get(m,"id")??0,"chapter",chapter,"subChapter",sub,"type",types,"namaContent",name,"description",description,"scenario",steps,"scenarioobject",list,"pdfurl",pdf);
+ }
+ static string Pretty(string s){var b=new StringBuilder();int depth=0;bool quoted=false,escape=false;foreach(char c in s){if(quoted){b.Append(c);if(escape)escape=false;else if(c=='\\')escape=true;else if(c=='"')quoted=false;continue;}if(c=='"'){quoted=true;b.Append(c);}else if(c=='{'||c=='['){b.Append(c);depth++;b.AppendLine();b.Append(' ',depth*2);}else if(c=='}'||c==']'){depth--;b.AppendLine();b.Append(' ',depth*2);b.Append(c);}else if(c==','){b.Append(c);b.AppendLine();b.Append(' ',depth*2);}else if(c==':')b.Append(": ");else if(!char.IsWhiteSpace(c))b.Append(c);}return b.ToString();}
+ [STAThread] public static void Main(string[] args){if(args.Length==4&&args[0]=="--verify"){try{var raw=json.DeserializeObject(File.ReadAllText(args[1]));var ed=json.DeserializeObject(File.ReadAllText(args[2]));var result=Build(raw,ed,"Nama edit","Deskripsi\nDua paragraf","Bab","Sub",Pdf);string text=Pretty(json.Serialize(result));var parsed=json.DeserializeObject(text);var steps=(object[])Get(parsed,"scenario");var objects=(object[])Get(parsed,"scenarioobject");if(Str(Get(parsed,"namaContent"))!="Nama edit"||Str(Get(parsed,"description"))!="Deskripsi\nDua paragraf"||Str(Get(steps[0],"commands"))!="Begin")throw new Exception("Verifikasi gagal.");File.WriteAllText(args[3],"PASS: "+steps.Length+" langkah, "+objects.Length+" objek; metadata dan JSON valid.");}catch(Exception e){File.WriteAllText(args[3],"FAIL: "+e);Environment.ExitCode=1;}return;}Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Application.Run(new KonverterSkenario());}
+}
+
+
+
+
+
