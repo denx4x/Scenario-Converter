@@ -1,58 +1,70 @@
 # Scenario Converter
 
-Aplikasi desktop Windows untuk mengonversi file JSON skenario dan object list editor ke format standar, dengan drag-and-drop, pengeditan metadata, pratinjau, dan pembaruan melalui GitHub Releases.
+Aplikasi desktop Windows untuk mengonversi dan mengedit JSON skenario. Gabungkan skenario dengan object list editor, cari content, lalu ubah bagian yang diperlukan melalui pratinjau sebelum menyimpan hasilnya.
 
-## Menggunakan aplikasi
+## Download
 
-1. Unduh `Scenario-Converter.exe` dari halaman **Releases** dan simpan di folder yang dapat Anda tulis.
-2. Jalankan aplikasi, lalu pilih atau tarik file `.json` dan `.editor` ke jendela.
-3. Edit nama content, description, chapter, subchapter, dan PDF URL.
-4. Klik **Konversi**, periksa hasilnya, lalu **Simpan JSON**.
+Unduh **Scenario-Converter.exe** pada bagian **Assets** di [rilis terbaru](https://github.com/denx4x/Scenario-Converter/releases/latest), lalu jalankan aplikasinya.
 
-Gunakan **Buka JSON hasil konversi** untuk mengedit hasil yang sudah ada tanpa memilih editor lagi. File skenario diproses di komputer Anda. Koneksi internet hanya digunakan saat menekan **Cek pembaruan**.
+Gunakan Windows 10/11 dengan .NET Framework 4.8. Aplikasi dapat digunakan tanpa browser. File skenario diproses secara lokal; koneksi internet digunakan saat memeriksa dan mengunduh pembaruan.
 
-Windows dengan .NET Framework 4.5 atau lebih baru diperlukan; aplikasi ditargetkan untuk Windows 10/11 dengan .NET Framework 4.8. Tidak perlu memasang Node.js atau membuka browser.
+## Konversi JSON dan editor
 
-## Format hasil
+1. Pilih atau tarik file `.json` skenario dan file `.editor` ke jendela aplikasi. Kedua file boleh dijatuhkan sekaligus.
+2. Isi atau edit **Nama content**, **Description**, **Chapter**, **Subchapter**, dan **PDF URL**.
+3. Klik **Konversi** untuk melihat pratinjau.
+4. Klik **Simpan JSON** untuk menyimpan hasil.
 
-Field utama: `id`, `chapter`, `subChapter`, `type`, `namaContent`, `description`, `scenario`, `scenarioobject`, dan `pdfurl`.
+Jika JSON sudah memuat object list, file editor dapat dikosongkan.
 
-- `skenario.Items` menjadi `scenario`.
-- `AsbunName` menjadi `namaContent`.
-- `objectId` menjadi `GameObjectID`.
-- Command awal `First` menjadi `Begin`, sedangkan `event_name` dipertahankan.
-- `parameterscript` tetap string JSON; nilai kosong menjadi `null`.
-- Mendukung editor yang menyimpan skenario dan object list sebagai string JSON.
+## Membuka dan mengedit content
 
-## Build dari source
+Fitur berikut tersedia mulai **v1.0.1**.
 
-Jalankan dari PowerShell pada Windows:
+1. Klik **Buka / edit JSON content** dan pilih file yang akan diedit.
+2. Cari berdasarkan **ID content**, **Chapter**, **Subchapter**, atau **Nama content**, lalu klik **Cari**. Kosongkan pencarian untuk menampilkan semua content.
+3. Pilih content dari daftar hasil.
+4. Gunakan tab **Informasi / Metadata** untuk mengedit informasi content, atau tab **scenario / Langkah JSON** untuk mengedit langkahnya.
+5. Klik **Terapkan ke content terpilih**, lalu **Simpan sebagai…**.
 
-```powershell
-./build.ps1 -Version 1.0.0
-```
+**ID content** adalah nilai `id` pada content utama. Setiap langkah di dalam `scenario` memiliki ID tersendiri.
 
-Hasilnya ada di `bin/Scenario-Converter.exe` beserta `.sha256`. Compiler .NET Framework bawaan Windows digunakan. Folder `bin` tidak perlu diunggah ke Git.
+Perubahan diterapkan hanya pada field yang diedit dalam content terpilih. Content lain dan field tambahan dipertahankan. Aplikasi akan meminta keputusan jika Anda berpindah content dengan edit yang belum diterapkan.
 
-## Menerbitkan pembaruan
+Tombol **Batalkan edit content** mengembalikan edit yang belum diterapkan ke kondisi terakhir yang sudah diterapkan. Tombol ini tidak membatalkan perubahan yang sebelumnya sudah diterapkan.
 
-Setelah source tersimpan di GitHub, buat tag versi baru:
+## Mengganti langkah dari file lain
 
-```powershell
-git tag v1.0.0
-git push origin v1.0.0
-```
+1. Pilih content tujuan, lalu buka tab **scenario / Langkah JSON**.
+2. Klik **Import JSON + editor / Ganti langkah…**.
+3. Pilih atau tarik JSON skenario baru dan file editor ke jendela import. Anda juga dapat menjatuhkan keduanya sekaligus ke area mana pun di jendela tersebut.
+4. Tentukan opsi penggantian:
+   - **Ganti scenarioobject**: memakai object list dari file editor atau JSON impor. Opsi ini aktif secara default. Matikan jika hanya ingin mengganti langkah.
+   - **Perbarui type**: menyesuaikan daftar jenis interaksi dengan skenario yang diimpor. Opsi ini dapat diaktifkan sesuai kebutuhan.
+5. Klik **Import pengganti langkah**, lalu periksa hasilnya di editor.
+6. Klik **Terapkan ke content terpilih** dan **Simpan sebagai…**.
 
-Workflow GitHub Actions membangun aplikasi dan membuat **draft release** berisi EXE serta checksum. Periksa draft di GitHub, tulis catatan perubahan, lalu klik **Publish release**. Update berikutnya menggunakan versi yang lebih tinggi, misalnya `v1.0.1`. Tag harus berbentuk `vMAJOR.MINOR.PATCH`.
+Jika JSON impor sudah dikonversi dan memuat `scenarioobject`, file editor tidak diperlukan. Nama content, description, chapter, subchapter, dan PDF URL tujuan tetap dipertahankan saat import.
 
-Tombol **Cek pembaruan** membaca rilis publik terbaru dari `denx4x/Scenario-Converter`. Aplikasi meminta persetujuan sebelum memasang, memverifikasi SHA-256 dan versi EXE, lalu membuka ulang aplikasi. Simpan edit sebelum menerima pembaruan. Versi sebelumnya disimpan sebagai `.exe.previous` agar pemasangan yang gagal dapat dipulihkan. Pemeriksaan checksum mendeteksi file yang rusak; itu bukan tanda tangan digital penerbit.
+Hasil import ditampilkan dengan indentasi. Gunakan **Rapikan JSON** untuk merapikan langkah yang sebelumnya ditulis dalam bentuk padat. `parameterscript` tetap berupa string JSON sesuai format skenario.
 
-Sampai rilis pertama dipublikasikan, aplikasi akan menampilkan bahwa belum ada rilis publik. Repository privat tidak didukung oleh updater ini.
+## Menyimpan hasil
 
-## Struktur source
+Gunakan **Simpan sebagai…** untuk menentukan lokasi dan nama file hasil. Sebaiknya simpan sebagai file baru agar file sumber tetap tersedia.
 
-- `src/ScenarioConverter.cs`: UI dan konversi.
-- `src/Updates.cs`: pemeriksaan rilis dan pengunduhan update.
-- `src/UpdateHelper.cs`: pemasangan update setelah aplikasi ditutup.
-- `assets/app.ico`: ikon aplikasi.
-- `.github/workflows/release.yml`: build dan draft release dari tag.
+Editor mendukung satu object content, array content `[]`, dan beberapa object content yang dipisahkan koma. Format sumber dipertahankan. Untuk daftar object tanpa pembungkus array, aktifkan **Ekspor sebagai array JSON standar []** jika aplikasi tujuan memerlukan satu dokumen JSON standar.
+
+## Pembaruan aplikasi
+
+Klik **Cek pembaruan** pada jendela utama. Jika tersedia versi lebih baru, aplikasi menampilkan informasi rilis dan meminta persetujuan sebelum mengunduh serta memasangnya.
+
+Simpan pekerjaan terlebih dahulu karena aplikasi akan ditutup dan dibuka kembali saat pemasangan update. Pembaruan juga dapat diunduh dari [halaman Releases](https://github.com/denx4x/Scenario-Converter/releases).
+
+## Jika mengalami masalah
+
+- **Object list tidak ditemukan**: pilih editor yang sesuai, atau gunakan JSON hasil konversi yang sudah memuat `scenarioobject`.
+- **JSON tidak valid**: periksa tanda kurung, tanda kutip, dan koma pada bagian yang diedit.
+- **Fitur terbaru belum muncul**: tutup aplikasi lama dan jalankan versi terbaru yang sudah diunduh.
+- **Pembaruan tidak tersedia**: fitur hanya membaca rilis publik yang sudah dipublikasikan.
+
+Laporkan masalah melalui [Issues](https://github.com/denx4x/Scenario-Converter/issues) dengan langkah kejadian dan contoh data seperlunya.
