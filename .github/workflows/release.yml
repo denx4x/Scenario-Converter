@@ -12,6 +12,9 @@ jobs:
       - name: Build Windows application
         shell: pwsh
         run: ./build.ps1 -Version ($env:GITHUB_REF_NAME -replace '^v','')
+      - name: Test selective content editor
+        shell: pwsh
+        run: ./test.ps1
       - name: Create draft release and upload assets
         shell: pwsh
         env:
